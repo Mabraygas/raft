@@ -6,12 +6,27 @@ namespace RAFT
 string Raft::_ip;
 RaftGlobal::RaftParameter Raft::_raftpara;
 EpollServerPtr Raft::g_server;
+
+Raft* Raft::_instance = NULL;
 	
-Raft::Raft()
-{ }
+Raft::Raft() {
+	//capture SIGPIPE signal
+	signal(SIGPIPE, SIG_IGN);
+}
 
 Raft::~Raft()
 { }
+
+Raft* Raft::GetInstance() {
+	if(_instance == NULL) {
+		RaftGlobal::_mutex.lock();
+		if(_instance == NULL) {
+			_instance = new Raft();
+		}
+		RaftGlobal::_mutex.unlock();
+	}
+	return _instance;
+}
 
 int Raft::Init(const char* ip)
 {
@@ -133,12 +148,6 @@ int Raft::ParseConfigFile(RaftGlobal::RaftParameter& para, const char* config_pa
 		return -1;
 	}
 
-	//字段: Client_Port
-	if(!cfg.lookupValue("Client_Port", para.client_port)) {
-		fprintf(stderr, "通知客户端的端口号(Client_Port)字段不存在!\n");
-		return -1;
-	}
-
 	//打印
 	INFO("Raft: Raft Config:");
 	INFO("Raft: FOLLOWER_N: " << para.follower_N);
@@ -147,7 +156,6 @@ int Raft::ParseConfigFile(RaftGlobal::RaftParameter& para, const char* config_pa
 	}
 	INFO("Raft: Forced_Leader: " << para.forced_leader);
 	INFO("Raft: HeartBeat_Interval: " << para.heartbeat_interval);
-	INFO("Raft: Client_Port: " << para.client_port);
 	
 	//解析成功
 	return 0;
@@ -225,29 +233,8 @@ int Raft::Parse(string &buffer, string &o) {
 		o = buffer.substr(9, 10);
 		//在buffer中去掉该数据包
 		buffer = buffer.substr(19, buffer.length() - 19);
-
-		return PACKET_FULL;
-	}else { //是客户端列表
-		
-		//ip地址长度
-		int ip_length = *(int *)(buffer.c_str() + 10);
-
-		//判断包体长度: key(8) + ver(1) + client_list(1) + ip_length(4) + ip(ip_length)
-		if(buffer.length() < (size_t)(14 + ip_length)) {
-			return PACKET_LESS;
-		}
-
-		if(ip_length < 0 || ip_length > 15) {
-			buffer = buffer.substr(14, buffer.length() - 14);
-			return PACKET_ERR;
-		}
-
-		o = buffer.substr(9, 5 + ip_length);
-		//在buffer中去掉该数据包
-		buffer = buffer.substr(14 + ip_length, buffer.length() - 14 - ip_length);
-
-		return PACKET_FULL;
 	}
+	return PACKET_FULL;
 }
 
 int Raft::StartThread() {
@@ -280,13 +267,6 @@ int Raft::StartThread() {
 		for(int gid = 0; gid < RaftGlobal::skRaftSendWorkNum; gid ++ ) {
 			RaftSendWork::s_raft_send_work_arr[gid] = new RaftSendWork();
 			(RaftSendWork::s_raft_send_work_arr[gid])->start();
-		}
-		
-		//启动raft通知Client线程
-		RaftNotifyClientWork::s_server = g_server;
-		for(int gid = 0; gid < RaftGlobal::skRaftNotifyClientWorkNum; gid ++ ) {
-			RaftNotifyClientWork::s_raft_notify_client_work_arr[gid] = new RaftNotifyClientWork();
-			(RaftNotifyClientWork::s_raft_notify_client_work_arr[gid])->start();
 		}
 		
 	}catch(EagleException &ex) {

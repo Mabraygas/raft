@@ -5,13 +5,14 @@ namespace RAFT
 	
 ThreadQueue<RaftGlobal::RaftRecvHeartBeatItem> RaftGlobal::s_raft_recv_heartbeat_queue;
 ThreadQueue<RaftGlobal::RaftSendHeartBeatItem> RaftGlobal::s_raft_send_heartbeat_queue;
-ThreadQueue<RaftGlobal::RaftRecvHeartBeatItem> RaftGlobal::s_raft_recv_clientlist_queue;
 
 ThreadQueue<RaftGlobal::RaftRecvHeartBeatItem> RaftGlobal::s_raft_leader_queue;
 ThreadQueue<RaftGlobal::RaftRecvHeartBeatItem> RaftGlobal::s_raft_candidate_queue;
 ThreadQueue<RaftGlobal::RaftRecvHeartBeatItem> RaftGlobal::s_raft_follower_queue;
 const char* RaftGlobal::skRaftConfigFile   = "raft.cfg";
 const char* RaftGlobal::skRaftHeartBeatKey = "RAFTHKEY";
+
+ThreadMutex RaftGlobal::_mutex;
 
 //默认构造函数
 RaftGlobal::Follower::Follower() {

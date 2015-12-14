@@ -24,7 +24,6 @@
 #include "raft_candidate_work.h"
 #include "raft_follower_work.h"
 #include "raft_send_work.h"
-#include "raft_notify_client_work.h"
 
 namespace RAFT
 {
@@ -35,17 +34,25 @@ using namespace libconfig;
 
 class Raft : public Thread
 {
-//构造与析构
-public:
+//构造与析构, 单例模式, 不允许从类外生成类的实例
+protected:
 	Raft();
    ~Raft();
+   Raft(const Raft&);
+   Raft& operator = (const Raft&);
 
 public:
     //初始化函数
     static int Init(const char* ip);
+	
+	//类外获取Raft实例的接口
+	static Raft* GetInstance();
 
 	//读配置文件函数
 	static int ParseConfigFile(struct RaftGlobal::RaftParameter& para, const char* config);
+
+	//检测本机是否是中心节点
+	static bool IsLeader() { return RaftHandleWork::Get_Charactor() == RaftGlobal::LEADER; }
 
 protected:
     //线程的启动函数
@@ -58,6 +65,9 @@ protected:
 	int StartThread();
 
 private:
+	//单例实例指针
+	static Raft* _instance;
+
     //本机ip
 	static string _ip;
 

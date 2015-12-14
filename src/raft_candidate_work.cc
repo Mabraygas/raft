@@ -40,6 +40,11 @@ void RaftCandidateWork::run() {
 			
 			int follower_num = RaftHandleWork::s_follower_num[RaftHandleWork::GetCurrSwitchNo()];
 			//得到了大多数投票, 升级为Leader
+			RaftGlobal::_mutex.lock();
+			if(RaftGlobal::CANDIDATE != RaftHandleWork::Get_Charactor()) {
+				RaftGlobal::_mutex.unlock();
+				continue;
+			}
 			if(2 * iRet + 2 > follower_num) {
 				RaftHandleWork::Set_Voted(RaftHandleWork::Get_Step());
 				RaftHandleWork::Set_Charactor(RaftGlobal::LEADER);
@@ -48,6 +53,7 @@ void RaftCandidateWork::run() {
 				int _step = RaftHandleWork::Get_Step();
 				RaftHandleWork::Set_Step(_step + 1);
 			}
+			RaftGlobal::_mutex.unlock();
 		}
 		
 	}

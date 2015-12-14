@@ -25,8 +25,8 @@ class RaftGlobal
 public:
 	//Follower的最大数量
 	static const int skFollowerMaxCount = 64;
-	//Client的最大数量
-	static const int skClientMaxCount = 4096;
+	//单例锁(getInstance前)、角色切换锁(getInstance后)
+	static ThreadMutex _mutex;
 	
 	//Follower结构
 	struct Follower
@@ -94,13 +94,6 @@ public:
 				//阶段
 				int  step;
 			} HB_info;
-			//客户端列表
-			struct  __attribute__ ((packed)) {
-				//数据长度
-				int  ip_length;
-				//单个客户端ip地址
-				char client_ip[16];
-			} CL_list;
 		};
 	} __attribute__ ((packed));
 	//sizeof(RaftRecvHeartBeatItem) = 4+16+1+4+16 = 41(bytes)
@@ -110,9 +103,6 @@ public:
 	
 	//raft心跳接收队列
 	static ThreadQueue<RaftRecvHeartBeatItem> s_raft_recv_heartbeat_queue;
-
-	//raft客户端列表接收队列
-	static ThreadQueue<RaftRecvHeartBeatItem> s_raft_recv_clientlist_queue;
 
 	//接收心跳包后, 根据本机的角色, 分别分发心跳包至以下三种队列中
 	//Leader队列

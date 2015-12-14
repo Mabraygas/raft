@@ -60,7 +60,7 @@ void RaftHandleWork::Init(string ip, RaftGlobal::RaftParameter &para) {
 	_voted = 0;
 	//随机种子的初始化
 	srand(time(NULL));
-	//每个Follower自身的心跳时限200 + (5-9) + 10*id ms
+	//每个Follower自身的心跳时限150 + (5-9) + 10*id ms
 	_timewait = _raftparameter.heartbeat_interval + 10 * _id + (rand() % 5) + 5;
 }
 
@@ -108,6 +108,11 @@ void RaftHandleWork::run() {
 			//先检查收到的心跳包是否来自某Leader或更高阶的Candidate, 如果是, 则本机降级为Follower
 			if(recv_item.HB_info.charactor == RaftGlobal::LEADER || (recv_item.HB_info.charactor == RaftGlobal::CANDIDATE
 					&& recv_item.HB_info.step > Get_Step())) {
+				RaftGlobal::_mutex.lock();
+				if(Get_Charactor() != RaftGlobal::CANDIDATE) {
+					RaftGlobal::_mutex.unlock();
+					continue;
+				}
 				//降级
 				if(recv_item.HB_info.charactor == RaftGlobal::LEADER) {
 					INFO("Raft: Down to Follower. Find Leader " << recv_item.ip);
@@ -119,6 +124,7 @@ void RaftHandleWork::run() {
 				Set_Voted(recv_item.HB_info.step);
 				//推入Follower工作线程
 				RaftGlobal::s_raft_follower_queue.push_back(recv_item);
+				RaftGlobal::_mutex.unlock();
 			}
 		}
 	}
